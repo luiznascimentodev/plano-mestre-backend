@@ -1,0 +1,83 @@
+import { TopicsService } from './topics.service';
+import { CreateTopicDto } from './dto/create-topic.dto';
+import { UpdateTopicDto } from './dto/update-topic.dto';
+import { User } from '@prisma/client';
+export declare class TopicController {
+    private readonly topicService;
+    constructor(topicService: TopicsService);
+    create(createTopicDto: CreateTopicDto, user: User): Promise<{
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        userId: number;
+        tags: string | null;
+        category: string | null;
+        priority: import(".prisma/client").$Enums.TopicPriority | null;
+        dueDate: Date | null;
+        color: string | null;
+        notes: string | null;
+        status: import(".prisma/client").$Enums.StudyStatus;
+    }>;
+    findAll(user: User): Promise<{
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        userId: number;
+        tags: string | null;
+        category: string | null;
+        priority: import(".prisma/client").$Enums.TopicPriority | null;
+        dueDate: Date | null;
+        color: string | null;
+        notes: string | null;
+        status: import(".prisma/client").$Enums.StudyStatus;
+    }[]>;
+    findOne(id: number, user: User): Promise<{
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        userId: number;
+        tags: string | null;
+        category: string | null;
+        priority: import(".prisma/client").$Enums.TopicPriority | null;
+        dueDate: Date | null;
+        color: string | null;
+        notes: string | null;
+        status: import(".prisma/client").$Enums.StudyStatus;
+    }>;
+    update(id: number, updateTopicDto: UpdateTopicDto, user: User): Promise<{
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        userId: number;
+        tags: string | null;
+        category: string | null;
+        priority: import(".prisma/client").$Enums.TopicPriority | null;
+        dueDate: Date | null;
+        color: string | null;
+        notes: string | null;
+        status: import(".prisma/client").$Enums.StudyStatus;
+    }>;
+    remove(id: number, user: User): Promise<{
+        name: string;
+        id: number;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        userId: number;
+        tags: string | null;
+        category: string | null;
+        priority: import(".prisma/client").$Enums.TopicPriority | null;
+        dueDate: Date | null;
+        color: string | null;
+        notes: string | null;
+        status: import(".prisma/client").$Enums.StudyStatus;
+    }>;
+}
