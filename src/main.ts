@@ -108,11 +108,12 @@ async function bootstrap() {
     }),
   );
 
-  // Porta configurável
+  // Porta e host configuráveis
   const port = configService.get<number>('PORT', 3001);
-  await app.listen(port);
+  const host = configService.get<string>('HOST', '0.0.0.0');
+  await app.listen(port, host);
 
-  logger.log(`Backend rodando em http://localhost:${port}`);
+  logger.log(`Backend rodando em http://${host}:${port}`);
   logger.log(`Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
 }
 bootstrap();
