@@ -11,6 +11,14 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
+  // Se estiver atrás de proxy/load balancer (Nginx/ALB), confiar no proxy
+  // Necessário para cookies 'secure' e IP correto (Express)
+  const httpAdapter: any = (app as any).getHttpAdapter?.();
+  const instance = httpAdapter?.getInstance?.();
+  if (instance?.set) {
+    instance.set('trust proxy', 1);
+  }
+
   // Validar variáveis de ambiente obrigatórias
   const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
   const missingVars = requiredEnvVars.filter(

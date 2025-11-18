@@ -39,7 +39,10 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Usuário criado com sucesso.' })
   @ApiResponse({ status: 409, description: 'E-mail já existe (Conflict).' })
   @ApiResponse({ status: 400, description: 'Dados inválidos (Bad Request).' })
-  @ApiResponse({ status: 429, description: 'Muitas requisições. Tente novamente mais tarde.' })
+  @ApiResponse({
+    status: 429,
+    description: 'Muitas requisições. Tente novamente mais tarde.',
+  })
   register(@Body() registerAuthDto: RegisterAuthDto) {
     return this.authService.register(registerAuthDto);
   }
@@ -62,7 +65,10 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  @ApiResponse({ status: 429, description: 'Muitas tentativas de login. Tente novamente mais tarde.' })
+  @ApiResponse({
+    status: 429,
+    description: 'Muitas tentativas de login. Tente novamente mais tarde.',
+  })
   async login(
     @Body() loginAuthDto: LoginAuthDto,
     @Req() req: Request,
@@ -70,32 +76,65 @@ export class AuthController {
   ) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.get('user-agent');
-    
-    const result = await this.authService.login(loginAuthDto, ipAddress, userAgent);
-    
+
+    const result = await this.authService.login(
+      loginAuthDto,
+      ipAddress,
+      userAgent,
+    );
+
     const isProduction = this.configService.get('NODE_ENV') === 'production';
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    
-    // Em desenvolvimento, usar 'lax' para permitir cookies cross-origin
-    // Em produção, usar 'strict' para maior segurança
-    const sameSiteOption = isProduction ? 'strict' : 'lax';
-    
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+
+    // Política de cookies configurável por ambiente
+    const cookieSameSiteEnv = (
+      this.configService.get<string>('COOKIE_SAMESITE') || ''
+    ).toLowerCase();
+    const sameSiteOption: 'lax' | 'strict' | 'none' = (():
+      | 'lax'
+      | 'strict'
+      | 'none' => {
+      if (
+        cookieSameSiteEnv === 'none' ||
+        cookieSameSiteEnv === 'lax' ||
+        cookieSameSiteEnv === 'strict'
+      ) {
+        return cookieSameSiteEnv as 'lax' | 'strict' | 'none';
+      }
+      // Padrão: em produção assumir cross-site => 'none'; em dev => 'lax'
+      return isProduction ? 'none' : 'lax';
+    })();
+    const secureCookie = ((): boolean => {
+      const envVal = this.configService.get<string>('COOKIE_SECURE');
+      if (envVal !== undefined) {
+        return ['1', 'true', 'yes', 'on'].includes(
+          String(envVal).toLowerCase(),
+        );
+      }
+      return isProduction; // padrão
+    })();
+
     // Definir access token em cookie httpOnly
     res.cookie('access_token', result.access_token, {
       httpOnly: true,
-      secure: isProduction, // Apenas HTTPS em produção
+      secure: secureCookie,
       sameSite: sameSiteOption,
       maxAge: 15 * 60 * 1000, // 15 minutos
       path: '/',
+      domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });
 
     // Definir refresh token em cookie httpOnly
     res.cookie('refresh_token', result.refresh_token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: secureCookie,
       sameSite: sameSiteOption,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
       path: '/',
+      domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });
 
     // Retornar apenas o usuário (tokens estão em cookies)
@@ -117,26 +156,55 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const refreshToken = req.cookies?.refresh_token;
-    
+
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token não fornecido');
     }
 
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.get('user-agent');
-    
-    const result = await this.authService.refreshAccessToken(refreshToken, ipAddress, userAgent);
-    
+
+    const result = await this.authService.refreshAccessToken(
+      refreshToken,
+      ipAddress,
+      userAgent,
+    );
+
     const isProduction = this.configService.get('NODE_ENV') === 'production';
-    const sameSiteOption = isProduction ? 'strict' : 'lax';
-    
+    const cookieSameSiteEnv = (
+      this.configService.get<string>('COOKIE_SAMESITE') || ''
+    ).toLowerCase();
+    const sameSiteOption: 'lax' | 'strict' | 'none' = (():
+      | 'lax'
+      | 'strict'
+      | 'none' => {
+      if (
+        cookieSameSiteEnv === 'none' ||
+        cookieSameSiteEnv === 'lax' ||
+        cookieSameSiteEnv === 'strict'
+      ) {
+        return cookieSameSiteEnv as 'lax' | 'strict' | 'none';
+      }
+      return isProduction ? 'none' : 'lax';
+    })();
+    const secureCookie = ((): boolean => {
+      const envVal = this.configService.get<string>('COOKIE_SECURE');
+      if (envVal !== undefined) {
+        return ['1', 'true', 'yes', 'on'].includes(
+          String(envVal).toLowerCase(),
+        );
+      }
+      return isProduction;
+    })();
+
     // Definir novo access token em cookie httpOnly
     res.cookie('access_token', result.access_token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: secureCookie,
       sameSite: sameSiteOption,
       maxAge: 15 * 60 * 1000, // 15 minutos
       path: '/',
+      domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });
 
     return { success: true };
@@ -166,13 +234,12 @@ export class AuthController {
     status: 200,
     description: 'Logout realizado com sucesso.',
   })
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const token = req.cookies?.access_token || req.headers.authorization?.replace('Bearer ', '');
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const token =
+      req.cookies?.access_token ||
+      req.headers.authorization?.replace('Bearer ', '');
     const user = (req as any).user;
-    
+
     // Tentar fazer logout completo se tiver token e usuário
     if (token) {
       try {
@@ -202,22 +269,47 @@ export class AuthController {
 
     // Sempre limpar cookies, mesmo se o logout completo falhar
     const isProduction = this.configService.get('NODE_ENV') === 'production';
-    const sameSiteOption = isProduction ? 'strict' : 'lax';
-    
-    res.clearCookie('access_token', { 
+    const cookieSameSiteEnv = (
+      this.configService.get<string>('COOKIE_SAMESITE') || ''
+    ).toLowerCase();
+    const sameSiteOption: 'lax' | 'strict' | 'none' = (():
+      | 'lax'
+      | 'strict'
+      | 'none' => {
+      if (
+        cookieSameSiteEnv === 'none' ||
+        cookieSameSiteEnv === 'lax' ||
+        cookieSameSiteEnv === 'strict'
+      ) {
+        return cookieSameSiteEnv as 'lax' | 'strict' | 'none';
+      }
+      return isProduction ? 'none' : 'lax';
+    })();
+    const secureCookie = ((): boolean => {
+      const envVal = this.configService.get<string>('COOKIE_SECURE');
+      if (envVal !== undefined) {
+        return ['1', 'true', 'yes', 'on'].includes(
+          String(envVal).toLowerCase(),
+        );
+      }
+      return isProduction;
+    })();
+
+    res.clearCookie('access_token', {
       path: '/',
       httpOnly: true,
-      secure: isProduction,
+      secure: secureCookie,
       sameSite: sameSiteOption,
+      domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });
-    res.clearCookie('refresh_token', { 
+    res.clearCookie('refresh_token', {
       path: '/',
       httpOnly: true,
-      secure: isProduction,
+      secure: secureCookie,
       sameSite: sameSiteOption,
+      domain: this.configService.get<string>('COOKIE_DOMAIN') || undefined,
     });
 
     return { success: true };
   }
-
 }
