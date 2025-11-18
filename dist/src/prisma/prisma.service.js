@@ -8,29 +8,51 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var PrismaService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const client_1 = require("@prisma/client");
-let PrismaService = class PrismaService extends client_1.PrismaClient {
+let PrismaService = PrismaService_1 = class PrismaService extends client_1.PrismaClient {
     configService;
+    logger = new common_1.Logger(PrismaService_1.name);
     constructor(configService) {
+        const isProduction = configService.get('NODE_ENV') === 'production';
         super({
             datasources: {
                 db: {
                     url: configService.get('DATABASE_URL'),
                 },
             },
+            log: isProduction
+                ? ['error', 'warn']
+                : ['query', 'info', 'warn', 'error'],
         });
         this.configService = configService;
     }
     async onModuleInit() {
-        await this.$connect();
+        try {
+            await this.$connect();
+            this.logger.log('✅ Conectado ao banco de dados com sucesso');
+        }
+        catch (error) {
+            this.logger.error('❌ Erro ao conectar ao banco de dados:', error);
+            throw error;
+        }
+    }
+    async onModuleDestroy() {
+        try {
+            await this.$disconnect();
+            this.logger.log('🔌 Desconectado do banco de dados');
+        }
+        catch (error) {
+            this.logger.error('❌ Erro ao desconectar do banco de dados:', error);
+        }
     }
 };
 exports.PrismaService = PrismaService;
-exports.PrismaService = PrismaService = __decorate([
+exports.PrismaService = PrismaService = PrismaService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService])
 ], PrismaService);

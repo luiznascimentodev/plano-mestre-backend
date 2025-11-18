@@ -14,6 +14,11 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     const configService = app.get(config_1.ConfigService);
     const logger = new common_1.Logger('Bootstrap');
+    const httpAdapter = app.getHttpAdapter?.();
+    const instance = httpAdapter?.getInstance?.();
+    if (instance?.set) {
+        instance.set('trust proxy', 1);
+    }
     const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
     const missingVars = requiredEnvVars.filter((varName) => !configService.get(varName));
     if (missingVars.length > 0) {

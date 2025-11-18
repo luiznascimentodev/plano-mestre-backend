@@ -43,20 +43,37 @@ let AuthController = class AuthController {
         const result = await this.authService.login(loginAuthDto, ipAddress, userAgent);
         const isProduction = this.configService.get('NODE_ENV') === 'production';
         const frontendUrl = this.configService.get('FRONTEND_URL', 'http://localhost:3000');
-        const sameSiteOption = isProduction ? 'strict' : 'lax';
+        const cookieSameSiteEnv = (this.configService.get('COOKIE_SAMESITE') || '').toLowerCase();
+        const sameSiteOption = (() => {
+            if (cookieSameSiteEnv === 'none' ||
+                cookieSameSiteEnv === 'lax' ||
+                cookieSameSiteEnv === 'strict') {
+                return cookieSameSiteEnv;
+            }
+            return isProduction ? 'none' : 'lax';
+        })();
+        const secureCookie = (() => {
+            const envVal = this.configService.get('COOKIE_SECURE');
+            if (envVal !== undefined) {
+                return ['1', 'true', 'yes', 'on'].includes(String(envVal).toLowerCase());
+            }
+            return isProduction;
+        })();
         res.cookie('access_token', result.access_token, {
             httpOnly: true,
-            secure: isProduction,
+            secure: secureCookie,
             sameSite: sameSiteOption,
             maxAge: 15 * 60 * 1000,
             path: '/',
+            domain: this.configService.get('COOKIE_DOMAIN') || undefined,
         });
         res.cookie('refresh_token', result.refresh_token, {
             httpOnly: true,
-            secure: isProduction,
+            secure: secureCookie,
             sameSite: sameSiteOption,
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: '/',
+            domain: this.configService.get('COOKIE_DOMAIN') || undefined,
         });
         return {
             user: result.user,
@@ -71,13 +88,29 @@ let AuthController = class AuthController {
         const userAgent = req.get('user-agent');
         const result = await this.authService.refreshAccessToken(refreshToken, ipAddress, userAgent);
         const isProduction = this.configService.get('NODE_ENV') === 'production';
-        const sameSiteOption = isProduction ? 'strict' : 'lax';
+        const cookieSameSiteEnv = (this.configService.get('COOKIE_SAMESITE') || '').toLowerCase();
+        const sameSiteOption = (() => {
+            if (cookieSameSiteEnv === 'none' ||
+                cookieSameSiteEnv === 'lax' ||
+                cookieSameSiteEnv === 'strict') {
+                return cookieSameSiteEnv;
+            }
+            return isProduction ? 'none' : 'lax';
+        })();
+        const secureCookie = (() => {
+            const envVal = this.configService.get('COOKIE_SECURE');
+            if (envVal !== undefined) {
+                return ['1', 'true', 'yes', 'on'].includes(String(envVal).toLowerCase());
+            }
+            return isProduction;
+        })();
         res.cookie('access_token', result.access_token, {
             httpOnly: true,
-            secure: isProduction,
+            secure: secureCookie,
             sameSite: sameSiteOption,
             maxAge: 15 * 60 * 1000,
             path: '/',
+            domain: this.configService.get('COOKIE_DOMAIN') || undefined,
         });
         return { success: true };
     }
@@ -90,7 +123,8 @@ let AuthController = class AuthController {
         };
     }
     async logout(req, res) {
-        const token = req.cookies?.access_token || req.headers.authorization?.replace('Bearer ', '');
+        const token = req.cookies?.access_token ||
+            req.headers.authorization?.replace('Bearer ', '');
         const user = req.user;
         if (token) {
             try {
@@ -116,18 +150,35 @@ let AuthController = class AuthController {
             }
         }
         const isProduction = this.configService.get('NODE_ENV') === 'production';
-        const sameSiteOption = isProduction ? 'strict' : 'lax';
+        const cookieSameSiteEnv = (this.configService.get('COOKIE_SAMESITE') || '').toLowerCase();
+        const sameSiteOption = (() => {
+            if (cookieSameSiteEnv === 'none' ||
+                cookieSameSiteEnv === 'lax' ||
+                cookieSameSiteEnv === 'strict') {
+                return cookieSameSiteEnv;
+            }
+            return isProduction ? 'none' : 'lax';
+        })();
+        const secureCookie = (() => {
+            const envVal = this.configService.get('COOKIE_SECURE');
+            if (envVal !== undefined) {
+                return ['1', 'true', 'yes', 'on'].includes(String(envVal).toLowerCase());
+            }
+            return isProduction;
+        })();
         res.clearCookie('access_token', {
             path: '/',
             httpOnly: true,
-            secure: isProduction,
+            secure: secureCookie,
             sameSite: sameSiteOption,
+            domain: this.configService.get('COOKIE_DOMAIN') || undefined,
         });
         res.clearCookie('refresh_token', {
             path: '/',
             httpOnly: true,
-            secure: isProduction,
+            secure: secureCookie,
             sameSite: sameSiteOption,
+            domain: this.configService.get('COOKIE_DOMAIN') || undefined,
         });
         return { success: true };
     }
@@ -141,7 +192,10 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Usuário criado com sucesso.' }),
     (0, swagger_1.ApiResponse)({ status: 409, description: 'E-mail já existe (Conflict).' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Dados inválidos (Bad Request).' }),
-    (0, swagger_1.ApiResponse)({ status: 429, description: 'Muitas requisições. Tente novamente mais tarde.' }),
+    (0, swagger_1.ApiResponse)({
+        status: 429,
+        description: 'Muitas requisições. Tente novamente mais tarde.',
+    }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [register_auth_dto_1.RegisterAuthDto]),
@@ -164,7 +218,10 @@ __decorate([
     }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Credenciais inválidas.' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Dados inválidos.' }),
-    (0, swagger_1.ApiResponse)({ status: 429, description: 'Muitas tentativas de login. Tente novamente mais tarde.' }),
+    (0, swagger_1.ApiResponse)({
+        status: 429,
+        description: 'Muitas tentativas de login. Tente novamente mais tarde.',
+    }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.Res)({ passthrough: true })),
