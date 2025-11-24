@@ -4,6 +4,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 const cookieParser = require('cookie-parser');
 
 async function bootstrap() {
@@ -46,8 +49,25 @@ async function bootstrap() {
           imgSrc: ["'self'", 'data:', 'https:'],
         },
       },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+      frameguard: {
+        action: 'deny',
+      },
+      noSniff: true,
+      xssFilter: true,
     }),
   );
+
+  // Aplicar interceptors globais
+  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(new SanitizeInterceptor());
+
+  // Aplicar filtro global de exceções
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS configurável via variáveis de ambiente
   const allowedOrigins = configService

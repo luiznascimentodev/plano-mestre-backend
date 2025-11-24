@@ -9,6 +9,9 @@ const swagger_1 = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const helmet_1 = __importDefault(require("helmet"));
+const logging_interceptor_1 = require("./common/interceptors/logging.interceptor");
+const sanitize_interceptor_1 = require("./common/interceptors/sanitize.interceptor");
+const all_exceptions_filter_1 = require("./common/filters/all-exceptions.filter");
 const cookieParser = require('cookie-parser');
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
@@ -35,7 +38,20 @@ async function bootstrap() {
                 imgSrc: ["'self'", 'data:', 'https:'],
             },
         },
+        hsts: {
+            maxAge: 31536000,
+            includeSubDomains: true,
+            preload: true,
+        },
+        frameguard: {
+            action: 'deny',
+        },
+        noSniff: true,
+        xssFilter: true,
     }));
+    app.useGlobalInterceptors(new logging_interceptor_1.LoggingInterceptor());
+    app.useGlobalInterceptors(new sanitize_interceptor_1.SanitizeInterceptor());
+    app.useGlobalFilters(new all_exceptions_filter_1.AllExceptionsFilter());
     const allowedOrigins = configService
         .get('ALLOWED_ORIGINS', 'http://localhost:3000')
         .split(',')
@@ -82,8 +98,9 @@ async function bootstrap() {
         disableErrorMessages: isProduction,
     }));
     const port = configService.get('PORT', 3001);
-    await app.listen(port);
-    logger.log(`Backend rodando em http://localhost:${port}`);
+    const host = configService.get('HOST', '0.0.0.0');
+    await app.listen(port, host);
+    logger.log(`Backend rodando em http://${host}:${port}`);
     logger.log(`Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
 }
 bootstrap();
