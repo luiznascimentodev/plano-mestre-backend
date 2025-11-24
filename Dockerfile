@@ -1,45 +1,41 @@
-FROM node:20-bullseye-slim AS builder
+# Stage 1: Build
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Dependências do sistema
-RUN apt-get update -y && apt-get install -y --no-install-recommends \
-  openssl ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
-# Instalar dependências (com dev) para build
+# Copiar apenas package files primeiro
 COPY package*.json ./
+COPY prisma ./prisma/
+
+# Instalar dependências
 RUN npm ci
 
-# Prisma generate (precisa schema para client)
-COPY prisma ./prisma
+# Gerar Prisma Client
 RUN npx prisma generate
 
-# Copiar código e build do Nest
-COPY tsconfig*.json ./
-COPY src ./src
-COPY nest-cli.json ./
+# Copiar código fonte
+COPY . .
+
+# Build
 RUN npm run build
 
-# Remover dependências de dev mantendo node_modules atual
-RUN npm prune --omit=dev
+# Stage 2: Production
+FROM node:18-alpine AS runner
 
-# --------------------------
-# Runtime
-FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production \
-  PORT=3001
+# Copiar package files
+COPY package*.json ./
+COPY prisma ./prisma/
 
-RUN addgroup --system nodejs && adduser --system --ingroup nodejs nodeusr
+# Instalar apenas dependências de produção
+RUN npm ci --omit=dev
 
-# Copiar artefatos do build
-COPY --from=builder /app/node_modules ./node_modules
+# Gerar Prisma Client em produção
+RUN npx prisma generate
+
+# Copiar apenas o build (não node_modules do builder)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-
-USER nodeusr
 
 EXPOSE 3001
 
