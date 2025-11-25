@@ -1,0 +1,48 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/plano-mestre-backend
+
+            echo "📥 Pulling latest code from GitHub..."
+            git pull origin master || git pull origin main
+
+            echo "🔧 Updating environment..."
+            # .env não é alterado (mantém configurações locais)
+
+            echo "🐳 Rebuilding Docker containers..."
+            docker-compose down
+            docker-compose build --no-cache
+            docker-compose up -d
+
+            echo "⏳ Waiting for services to start..."
+            sleep 15
+
+            echo "✅ Checking service status..."
+            docker-compose ps
+
+            echo "📊 Showing recent logs..."
+            docker-compose logs --tail=30 app
+
+            echo "🎉 Deploy completed successfully!"
